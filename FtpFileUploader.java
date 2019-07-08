@@ -2,12 +2,12 @@ package org.imf.skb111.lis.controller.file_uploader;
 
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
-import org.imf.skb111.lis.dblink.exceptions.ExceptionEventHandler;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.StringJoiner;
 
 /**
  * Created by laden on 08.07.2019.
@@ -21,6 +21,7 @@ public class FtpFileUploader implements IFileUploader {
     private String login = "";
     private String password = "";
     private FTPClient ftpClient;
+    private StringJoiner executeResult = new StringJoiner("\r\n");
 
     public FtpFileUploader(File uploadFile, String remoteDir, String hostname, int ftpPort, String login, String password) {
         this.uploadFile = uploadFile;
@@ -93,32 +94,33 @@ public class FtpFileUploader implements IFileUploader {
 
     @Override
     public boolean execute() {
-        System.out.println("FtpFileUploader");
+        //System.out.println("FtpFileUploader");
         try {
+            executeResult.add("FtpFileUploader");
             ftpClient = new FTPClient();
             ftpClient.connect(getHostname(), getFtpPort());
             if (!getLogin().equals("")) {
                 ftpClient.login(getLogin(), getPassword());
-            }else{
+            } else {
                 ftpClient.login("anonymous", "anonymous@anonymous.com");
             }
             ftpClient.enterLocalPassiveMode();
             ftpClient.setFileType(FTP.BINARY_FILE_TYPE);
 
             if (!getUploadFile().exists()) {
-                System.out.println(String.format("Local file for uploading [%s] not exist", getUploadFile().getAbsolutePath()));
+                executeResult.add(String.format("Local file for uploading [%s] not exist", getUploadFile().getAbsolutePath()));
                 return false;
             }
 
             String remoteFile = (!getRemoteDir().equals("")) ? String.format("%s/%s", getRemoteDir(), getUploadFile().getName()) : getUploadFile().getName();
             InputStream inputStream = new FileInputStream(uploadFile);
 
-            System.out.println(String.format("Start uploading file [%s] into remote file [%s]", uploadFile.getAbsolutePath(), remoteFile));
+            executeResult.add(String.format("Start uploading file [%s] into remote file [%s]", uploadFile.getAbsolutePath(), remoteFile));
 
             OutputStream os = ftpClient.storeFileStream(remoteFile);
             if (os == null) {
                 //something went wrong
-                System.out.println(String.format("Error transferring file: %s", ftpClient.getReplyString()));
+                executeResult.add(String.format("Error transferring file: %s", ftpClient.getReplyString()));
                 return false;
             }
             byte[] bytes = new byte[4096];
@@ -131,11 +133,15 @@ public class FtpFileUploader implements IFileUploader {
 
             boolean completed = ftpClient.completePendingCommand();
             if (completed) {
-                System.out.println(String.format("Local file [%s] successfully uploaded into remote file [%s]", uploadFile.getAbsolutePath(), remoteFile));
+                executeResult.add(String.format("Local file [%s] successfully uploaded into remote file [%s]", uploadFile.getAbsolutePath(), remoteFile));
+            } else {
+                return false;
             }
             return true;
         } catch (Exception ex) {
-            ExceptionEventHandler.handle(ex);
+            executeResult.add(ex.getMessage());
+            return false;
+
         } finally {
             try {
                 if (ftpClient != null && ftpClient.isConnected()) {
@@ -143,9 +149,14 @@ public class FtpFileUploader implements IFileUploader {
                     ftpClient.disconnect();
                 }
             } catch (Exception ex) {
-                ExceptionEventHandler.handle(ex);
+                executeResult.add(ex.getMessage());
+                return false;
             }
         }
-        return false;
+    }
+
+    @Override
+    public String getExecuteResult() {
+        return executeResult.toString();
     }
 }

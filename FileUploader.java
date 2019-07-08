@@ -14,4 +14,9 @@ public class FileUploader implements IFileUploader {
     public boolean execute() {
         return iFileUploader.execute();
     }
+
+    @Override
+    public String getExecuteResult() {
+        return iFileUploader.getExecuteResult();
+    }
 }

@@ -5,4 +5,5 @@ package org.imf.skb111.lis.controller.file_uploader;
  */
 public interface IFileUploader {
     boolean execute();
+    String getExecuteResult();
 }
